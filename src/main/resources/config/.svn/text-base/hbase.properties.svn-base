@@ -1,0 +1,4 @@
+open_hbase=true
+pool_size=10
+has_cache=false
+write_buffer_size=1048576

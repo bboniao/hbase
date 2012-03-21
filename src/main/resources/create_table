@@ -1,0 +1,1 @@
+create 'tidal' ,{NAME=>'kpi',COMPRESSION=>'LZO',BLOOMFILTER=>'ROW',VERSION=>1}
