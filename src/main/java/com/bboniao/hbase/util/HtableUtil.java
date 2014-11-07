@@ -33,4 +33,8 @@ public enum HtableUtil {
         }
         return null;
     }
+
+    public void close() throws IOException {
+        this.connection.close();
+    }
 }

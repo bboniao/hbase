@@ -7,7 +7,9 @@ import java.util.List;
 import com.bboniao.hbase.pojo.GetItem;
 import com.bboniao.hbase.service.BatchGetService;
 import com.bboniao.hbase.service.impl.*;
+import com.bboniao.hbase.util.AsyncHbaseUtil;
 import com.bboniao.hbase.util.Constant;
+import com.bboniao.hbase.util.HtableUtil;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -16,6 +18,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * test
@@ -28,11 +31,14 @@ public class Test {
 
     private BatchGetService batchGetService;
 
+    private AtomicLong hit = new AtomicLong();
+    private AtomicLong all = new AtomicLong();
+
     public Test(BatchGetService batchGetService) {
         this.batchGetService = batchGetService;
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         BatchGetService batchGetService;
         switch (args[1]) {
             case "1":
@@ -51,7 +57,22 @@ public class Test {
                 batchGetService = new NativeBatchGetServiceImpl();
                 break;
         }
-        new Test(batchGetService).output(args[0]);
+        System.out.println("start");
+        long time = System.currentTimeMillis();
+        Test t = new Test(batchGetService);
+        t.output(args[0]);
+        System.out.println(System.currentTimeMillis() - time);
+        t.genResult();
+        if ("1".equals(args[1])) {
+            AsyncHbaseUtil.I.close();
+        }
+        if ("5".equals(args[1])) {
+            HtableUtil.I.close();
+        }
+    }
+
+    public void genResult() {
+        System.out.println("hit: " + this.hit.get() + ", all: " + this.all.get());
     }
 
     public void output(String path) {
@@ -71,10 +92,16 @@ public class Test {
                 gets.add(g);
                 count++;
                 if (count %100 == 0) {
-                    this.batchGetService.batch(gets);
+                    Map<String, Map<String,String>> l = this.batchGetService.batch(gets);
+                    hit.addAndGet(l.size());
+                    all.addAndGet(gets.size());
                     gets = new ArrayList<>(100);
+                    System.out.println(count);
                 }
             }
+            Map<String, Map<String,String>> l = this.batchGetService.batch(gets);
+            hit.addAndGet(l.size());
+            all.addAndGet(gets.size());
         } catch (IOException e) {
             e.printStackTrace();
         } finally {

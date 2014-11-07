@@ -2,6 +2,7 @@ package com.bboniao.hbase.service.impl;
 
 import com.bboniao.hbase.pojo.GetItem;
 import com.bboniao.hbase.service.BatchGetService;
+import com.bboniao.hbase.service.BatchGetServiceUtil;
 import com.bboniao.hbase.util.AsyncThreadPoolFactory;
 import com.bboniao.hbase.util.Constant;
 import com.bboniao.hbase.util.HtableUtil;
@@ -11,11 +12,10 @@ import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.Result;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.Map;
+import java.util.concurrent.*;
 
 /**
  * 使用com.stumbleupon.async实现批量get
@@ -26,28 +26,38 @@ public class DeferredBatchGetServiceImpl implements BatchGetService {
     private ExecutorService pool = AsyncThreadPoolFactory.ASYNC_HBASE_THREAD_POOL;
 
     @Override
-    public List<String> batch(List<GetItem> getItems) {
-        final List<String> result = new ArrayList<>(getItems.size());
+    public Map<String, Map<String,String>> batch(List<GetItem> getItems) {
+        final Map<String, Map<String,String>> result = new ConcurrentHashMap<>();
         final CountDownLatch latch = new CountDownLatch(getItems.size());
 
+        List<Get> list = new ArrayList<>(20);
+        int count = 0;
+        Callback<Object, Map<String, Map<String,String>>> cb = new Callback<Object, Map<String, Map<String,String>>>() {
+            @Override
+            public Object call(Map<String, Map<String,String>> arg) throws Exception {
+                latch.countDown();
+                if(arg != null) {
+                    result.putAll(arg);
+                }
+                return null;
+            }
+        };
         for (GetItem item : getItems) {
             Get get = new Get(item.getRowkey());
             get.addFamily(item.getFamily());
+            list.add(get);
 
-            AsyncGet asyncGet = new AsyncGet(get);
-            asyncGet.getDeferred().addBoth(new Callback<Object, String>() {
-                @Override
-                public Object call(String arg) throws Exception {
-                    latch.countDown();
-                    if(arg != null) {
-                        result.add(arg);
-                    }
-                    return null;
-                }
-            });
+            if (count % 20 == 0) {
+                AsyncGet asyncGet = new AsyncGet(list);
+                asyncGet.getDeferred().addBoth(cb);
+                pool.submit(asyncGet);
+            }
 
-            pool.submit(asyncGet);
+            count++;
         }
+        AsyncGet asyncGet = new AsyncGet(list);
+        asyncGet.getDeferred().addBoth(cb);
+        pool.submit(asyncGet);
         try {
             latch.await(500, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
@@ -58,29 +68,32 @@ public class DeferredBatchGetServiceImpl implements BatchGetService {
 
     static class AsyncGet implements Callable<Boolean> {
 
-        private Get get;
+        private List<Get> gets;
 
-        private Deferred<String> deferred;
+        private Deferred<Map<String, Map<String,String>>> deferred;
 
-        AsyncGet(Get get) {
-            this.get = get;
+        AsyncGet(List<Get> gets) {
+            this.gets = gets;
             this.deferred = new Deferred<>();
         }
 
-        final void callback(final String result) {
+        final void callback(final Map<String, Map<String,String>> result) {
             deferred.callback(result);
         }
 
-        final Deferred<String> getDeferred() {
+        final Deferred<Map<String, Map<String,String>>> getDeferred() {
             return deferred;
         }
 
         @Override
         public Boolean call() throws Exception {
-            Result r = HtableUtil.I.getHtable(Constant.HTABLE).get(get);
-            if (r != null && r.value() != null) {
-                callback(new String(r.value()));
-            }
+            Result[] rr = HtableUtil.I.getHtable(Constant.HTABLE).get(gets);
+            Map<String, Map<String,String>> map = new HashMap<>();
+
+            BatchGetServiceUtil.dealLoop(rr, map);
+
+            callback(map);
+
             return true;
         }
     }

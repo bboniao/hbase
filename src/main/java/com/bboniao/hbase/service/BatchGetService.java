@@ -2,6 +2,7 @@ package com.bboniao.hbase.service;
 
 import com.bboniao.hbase.pojo.GetItem;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 批量抓取
@@ -12,5 +13,5 @@ public interface BatchGetService {
     /**
      * 批量抓取
      */
-    public List<String> batch(List<GetItem> getItems);
+    public Map<String, Map<String,String>> batch(List<GetItem> getItems);
 }

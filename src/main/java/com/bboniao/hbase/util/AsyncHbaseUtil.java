@@ -19,4 +19,8 @@ public enum AsyncHbaseUtil {
     public HBaseClient getClient() {
         return client;
     }
+
+    public void close() throws Exception {
+        this.client.shutdown().join();
+    }
 }

@@ -2,19 +2,17 @@ package com.bboniao.hbase.service.impl;
 
 import com.bboniao.hbase.pojo.GetItem;
 import com.bboniao.hbase.service.BatchGetService;
+import com.bboniao.hbase.service.BatchGetServiceUtil;
 import com.bboniao.hbase.util.Constant;
 import com.bboniao.hbase.util.HtableUtil;
-import com.netflix.hystrix.HystrixCollapser;
-import com.netflix.hystrix.HystrixCommand;
-import com.netflix.hystrix.HystrixCommandGroupKey;
-import com.netflix.hystrix.HystrixCommandKey;
+import com.netflix.hystrix.*;
+import com.netflix.hystrix.strategy.concurrency.HystrixRequestContext;
 import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.Result;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
@@ -24,23 +22,28 @@ import java.util.concurrent.Future;
  */
 public class HystrixBatchGetServiceImpl implements BatchGetService {
     @Override
-    public List<String> batch(List<GetItem> getItems) {
-        List<String> result = new ArrayList<>(getItems.size());
-
-        for (GetItem item : getItems) {
-            Get g = new Get(item.getRowkey());
-            g.addFamily(item.getFamily());
-            Future<String> f = new CommandCollapserGetValueForKey(g).queue();
-            try {
-                result.add(f.get());
-            } catch (InterruptedException | ExecutionException e) {
-                e.printStackTrace();
+    public Map<String, Map<String,String>> batch(List<GetItem> getItems) {
+        Map<String, Map<String,String>> result = new ConcurrentHashMap<>();
+        HystrixRequestContext context = HystrixRequestContext.initializeContext();
+        try {
+            for (GetItem item : getItems) {
+                Get g = new Get(item.getRowkey());
+                g.addFamily(item.getFamily());
+                Future<Result> f = new CommandCollapserGetValueForKey(g).queue();
+                try {
+                    BatchGetServiceUtil.dealLoop(new Result[]{f.get()}, result);
+                } catch (InterruptedException | ExecutionException e) {
+                    e.printStackTrace();
+                }
             }
+        } finally {
+            context.shutdown();
         }
+
         return result;
     }
 
-    public static class CommandCollapserGetValueForKey extends HystrixCollapser<List<String>, String, Get> {
+    public static class CommandCollapserGetValueForKey extends HystrixCollapser<List<Result>, Result, Get> {
 
         private final Get key;
 
@@ -54,37 +57,48 @@ public class HystrixBatchGetServiceImpl implements BatchGetService {
         }
 
         @Override
-        protected HystrixCommand<List<String>> createCommand(final Collection<CollapsedRequest<String, Get>> requests) {
+        protected HystrixCommand<List<Result>> createCommand(final Collection<CollapsedRequest<Result, Get>> requests) {
             return new BatchCommand(requests);
         }
 
         @Override
-        protected void mapResponseToRequests(List<String> batchResponse, Collection<CollapsedRequest<String, Get>> requests) {
+        protected void mapResponseToRequests(List<Result> batchResponse, Collection<CollapsedRequest<Result, Get>> requests) {
             int count = 0;
-            for (CollapsedRequest<String, Get> request : requests) {
+            for (CollapsedRequest<Result, Get> request : requests) {
+                if (batchResponse.isEmpty()) {
+                    continue;
+                }
                 request.setResponse(batchResponse.get(count++));
             }
         }
 
-        private static final class BatchCommand extends HystrixCommand<List<String>> {
-            private final Collection<CollapsedRequest<String, Get>> requests;
+        private static final class BatchCommand extends HystrixCommand<List<Result>> {
+            private final Collection<CollapsedRequest<Result, Get>> requests;
 
-            private BatchCommand(Collection<CollapsedRequest<String, Get>> requests) {
-                super(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey("ExampleGroup"))
-                        .andCommandKey(HystrixCommandKey.Factory.asKey("GetValueForKey")));
+            private BatchCommand(Collection<CollapsedRequest<Result, Get>> requests) {
+                super(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey("batch_get"))
+                        .andCommandKey(HystrixCommandKey.Factory.asKey("batch_get"))
+                        .andThreadPoolKey(HystrixThreadPoolKey.Factory.asKey("batch_get_pool"))
+                        .andCommandPropertiesDefaults(HystrixCommandProperties.Setter().withExecutionIsolationThreadTimeoutInMilliseconds(500))
+                        .andThreadPoolPropertiesDefaults(HystrixThreadPoolProperties.Setter().withCoreSize(200)));
                 this.requests = requests;
             }
 
             @Override
-            protected List<String> run() throws IOException {
-                ArrayList<String> response = new ArrayList<>();
-                for (CollapsedRequest<String, Get> request : requests) {
+            protected List<Result> run() throws IOException {
+                List<Result> response = new ArrayList<>();
+                for (CollapsedRequest<Result, Get> request : requests) {
                     Result r = HtableUtil.I.getHtable(Constant.HTABLE).get(request.getArgument());
                     if (r != null && r.value() != null) {
-                        response.add(new String(r.value()));
+                        response.add(r);
                     }
                 }
                 return response;
+            }
+
+            @Override
+            protected List<Result> getFallback() {
+                return Collections.emptyList();
             }
         }
     }
