@@ -1,0 +1,354 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+/**
+ * Copyright 2010 The Apache Software Foundation
+ *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+-->
+<configuration>
+<property>
+      <name>hbase.zookeeper.quorum</name>
+      <value>10.16.14.251</value>
+      <description>Comma separated list of servers in the ZooKeeper Quorum.
+      For example, "host1.mydomain.com,host2.mydomain.com,host3.mydomain.com".
+      By default this is set to localhost for local and pseudo-distributed modes
+      of operation. For a fully-distributed setup, this should be set to a full
+      list of ZooKeeper quorum servers. If HBASE_MANAGES_ZK is set in hbase-env.sh
+      this is the list of servers which we will start/stop ZooKeeper on.
+      </description>
+    </property>
+
+  <property>
+    <name>zookeeper.znode.parent</name>
+    <value>/hbase-test</value>
+    <description>Root ZNode for HBase in ZooKeeper. All of HBase's ZooKeeper
+      files that are configured with a relative path will go under this node.
+      By default, all of HBase's ZooKeeper file path are configured with a
+      relative path, so they will all go under this directory unless changed.
+    </description>
+  </property>
+  <!-- 
+ <property>
+  <name>hbase.rootdir</name>
+    <value>hdfs://hbase-namenode:9000/hbase</value>
+    <description>The directory shared by region servers.
+    </description>
+  </property>
+-->
+  <property>
+    <name>hbase.cluster.distributed</name>
+    <value>true</value>
+    <description>The mode the cluster will be in. Possible values are
+      false: standalone and pseudo-distributed setups with managed Zookeeper
+      true: fully-distributed with unmanaged Zookeeper Quorum (see hbase-env.sh)
+    </description>
+  </property>
+ <property>
+    <name>hbase.tmp.dir</name>
+    <value>/opt/newhbase/hbase/tmp</value>
+    <description>Temporary directory on the local filesystem.
+    Change this setting to point to a location more permanent
+    than '/tmp' (The '/tmp' directory is often cleared on
+    machine restart).
+    </description>
+  </property>
+ 
+  <property>
+    <name>hbase.rpc.timeout</name>
+    <value>500</value>
+    <description>
+      针对客户端有效。太小容易造成millis timeout while waiting for channel to be ready for read. ch
+    </description>
+  </property>         
+<property>
+      <name>hbase.regionserver.handler.count</name>
+      <value>12</value>
+      <description>
+	这个参数的调优与内存息息相关。
+较少的IO线程，适用于处理单次请求内存消耗较高的Big PUT场景（大容量单次PUT或设置了较大cache的scan，均属于Big PUT）或ReigonServer的内存比较紧张的场景。
+较多的IO线程，适用于单次请求内存消耗低，TPS要求非常高的场景。设置该值的时候，以监控内存为主要参考。
+这里需要注意的是如果server的region数量很少，大量的请求都落在一个region上，因快速充满memstore触发flush导致的读写锁会影响全局TPS，不是IO线程数越高越好。
+	</description>
+    </property>
+<property>
+    <name>hbase.zookeeper.property.tickTime</name>
+    <value>12000</value>
+</property>
+    <property>
+    <name>zookeeper.session.timeout</name>
+    <value>600000</value>
+      <description>
+	默认 3 分钟,也就是 rs 超过 3 分钟没有给 zk 消息, Master 就认为 rs 挂了。
+	如果 gc 的过程中阻塞时间超过了 3 分钟,那就杯具了, so 。。。
+	</description>
+    </property>
+	<property>
+	<name>hbase.regionserver.restart.on.zk.expire</name>
+	<value>true</value>
+	<description>
+	Zookeeper session expired will force regionserver exit.
+	Enable this will make the regionserver restart.
+	</description>
+</property>
+	<property>
+	<name>hbase.zookeeper.property.maxClientCnxns</name>
+	<value>200</value>
+	<description>
+	Zookeeper session expired will force regionserver exit.
+	Enable this will make the regionserver restart.
+	</description>
+</property>
+
+<!--优化-->
+<property>
+    <name>hbase.hregion.memstore.flush.size</name>
+    <value>33554432</value>
+    <description>
+        默认 128M ,当一个 region 中所有 MemStore 总大小超过 128M 时,开始 Flush 。
+    </description>
+</property>
+<property>
+    <name>hbase.hregion.max.filesize</name>
+    <value>10737418240</value>
+    <description>
+	默认 10G ,当一个 StoreFile 超过 10G 时,会启动 split 分裂为两个 daughter region ,分裂只是创建两个 reference ,不复制数据。
+    </description>
+</property>
+<property>
+    <name>hbase.hregion.memstore.block.multiplier</name>
+    <value>2</value>
+    <description>
+	默认 2 ,当一个 region 所有 memstore 之和超过hbase.hregion.memstore.flush.size (默认 64M )大小的 2 倍时,会强制阻塞写刷到磁盘。
+    </description>
+</property>
+<property>
+    <name>hbase.regionserver.regionSplitLimit</name>
+    <value>1</value>
+    <description>
+	如果在线的 region 超过此数目,则不再 split ,默认
+	int.MAX_VALUE(2147483647) ,设为 1 即可关闭自动 split 。
+    </description>
+</property>
+<property>
+    <name>hbase.hstore.compactionThreshold</name>
+    <value>5</value>
+    <description>
+	默认 3 ,当一个 store 中的 storefile 超时 3 个时,触发 compact 。所以,将此值设
+	置为 int.MAX_VALUE 可关闭自动 compact 。手动也不起作用.0.92.1版本不管用
+    </description>
+</property>
+<property>
+    <name>hbase.hstore.blockingStoreFiles</name>
+    <value>10</value>
+    <description>
+	默认 7 ,当 region 中任一个 store 中的 storefile 超过 7 个时,会触发的compact ,在 compact 完成之前, flush 会延迟执行。如果此时更新较多,导致该
+	region 的 memstore 之和超过 hbase.hregion.memstore.flush.size*hbase.hregion.memstore.block.multiplier ,则会阻塞更新,直到 Flush 完成,或
+	者 hbase.hstore.blockingWaitTime (默认 90s )超时,建议加大该值。
+    </description>
+</property>
+<property>
+    <name>hbase.regionserver.maxlogs</name>
+    <value>32</value>
+    <description>
+	默认 32 ,当 Hlog 的数量超过 32 个时会造成 flush 所有的 region ,不管它的
+	memstore 是否满。
+    </description>
+</property>
+<property>
+    <name>hbase.regionserver.global.memstore.upperLimit</name>
+    <value>0.45</value>
+    <description>
+	默认 0.4 ,表示 region server 上所有的 memstore 占用的内存总和最多为
+	MaxHeap 的 40% ,超过则会加锁刷磁盘,一直要等到某个 memstore 刷到磁盘,
+	且 memstore 总和下去了,才会继续, Flush 是串行操作,所以对 memstore 多
+	或写非常频繁的场景要特别注意。
+    </description>
+</property>
+<property>
+    <name>hbase.regionserver.global.memstore.lowerLimit</name>
+    <value>0.40</value>
+    <description>
+	默认 0.35 ,当所有 MemStore 的大小超过 MaxHeap 的 35% 时,开始持续
+	Flush ,以尽量避免到 upperLimit 导致锁。
+    </description>
+</property>
+<property>
+    <name>hbase.hstore.compaction.max</name>
+    <value>10</value>
+    <description>
+	默认 10 ,一次 minor compaction 最多只处理 10 个 StoreFile
+    </description>
+</property>
+<property>
+    <name>hbase.hregion.majorcompaction</name>
+    <value>0</value>
+    <description>
+	默认 86400000 毫秒 =1 天,同一个 region 两次 major compaction 操作的时间间隔。
+	如果一次 minor compaction 选中的 StoreFile 是这个 region 的所有
+	StoreFile , minor compaction 会自动升级为 major compaction
+	手工触发:
+	$hbase shell
+	hbase(main):015:0> compact 'test'
+	0 row(s) in 0.2220 seconds
+	hbase(main):016:0> major_compact 'test'
+	0 row(s) in 0.3240 seconds
+	So ,如果没有 delete , major compaction 可以不用太频繁的执行。
+    </description>
+</property>
+<property>
+    <name>hbase.hregion.memstore.mslab.enabled</name>
+    <value>true</value>
+    <description>
+	是否启用 MSLAB ,默认 true
+    </description>
+</property>
+<property>
+    <name>hbase.hregion.memstore.mslab.chunksize</name>
+    <value>2097152</value>
+    <description>
+	Chunk 的尺寸,默认 2MB
+    </description>
+</property>
+<property>
+    <name>hbase.hregion.memstore.mslab.max.allocation</name>
+    <value>262144</value>
+    <description>
+	MSLAB 中单次分配内存的最大尺寸,默认 256K ,超过该尺寸的内存直接在Heap 上分配
+    </description>
+</property>
+<property>
+    <name>hfile.block.cache.size</name>
+    <value>0.3</value>
+    <description>
+	默认 0.2 ,全局公用的 hfile 的 cache ,最多占用 MaxHeap 的 20% 。当数据在
+	memstore 中读取不到时,就会从这个 cache 里获取,当从此 cache 中获取不
+	到时,就需要读取文件。当 cache 的 block 达到了这个值的 85% 时,即会启动
+	evict (日志中会出现“ Block cache LRU eviction” ),将 cache 清除到 75%
+	大小,可通过日志中的“ LRU Stats: ” 来观察 cache 的命中率
+    </description>
+</property>
+<property>
+    <name>hbase.client.pause</name>
+    <value>1000</value>
+    <description>
+	默认 1000ms ,客户端被阻塞或者失败后重试间隔,间隔为指数避让,即
+	1,1,1,2,2,4,4,8,16,32 ,建议改下这个值,同时加大重试次数,避免 split 造成客
+	户端响应时间过长以及失败率增加。
+    </description>
+</property>
+<property>
+    <name>hbase.client.retries.number</name>
+    <value>10</value>
+    <description>
+	默认为 10 次,决定了客户端的重试次数
+    </description>
+</property>
+<property>
+    <name>hbase.ipc.client.tcpnodelay</name>
+    <value>true</value>
+    <description>
+	默认 tcp 的 no delay 是 false ,建议修改为 true
+    </description>
+</property>
+<property>
+    <name>ipc.ping.interval</name>
+    <value>3000</value>
+    <description>
+	RPC 等待服务端响应的超时时间,默认为 1 分钟,有点太长了,建议改成 3 秒( 3000 )
+    </description>
+</property>
+<property>  
+    <name>hbase.server.thread.wakefrequency</name>  
+    <value>100</value>
+    <description>
+	减少睡眠等待时间，默认值为10000  
+    </description>
+  </property>  
+<property>  
+    <name>hbase.regionserver.codecs</name>  
+    <value>lzo,gz</value>
+    <description>
+	 启动regionserver时判断压缩方式是否支持 
+    </description>
+  </property>  
+<property>
+    <name>hbase.coprocessor.region.classes</name>
+    <value>org.apache.hadoop.hbase.coprocessor.AggregateImplementation</value>
+</property>
+<property>
+    <name>hbase.rest.threads.mix</name>
+    <value>50</value>
+</property>
+<property>
+    <name>hbase.rest.threads.max</name>
+    <value>500</value>
+</property>
+<property>
+    <name>hbase.regionserver.thread.compaction.large</name>
+    <value>4</value>
+</property>
+<property>
+    <name>hbase.regionserver.thread.compaction.small</name>
+    <value>2</value>
+</property>
+<!--默认60s 设置大一些可以避免
+IPC Server listener on 60020: readAndProcess threw exception java.io.IOException: Connection reset by peer. Count of bytes read: 0 -->
+<property>
+    <name>hbase.client.scanner.timeout.period</name>
+    <value>120000</value>
+</property>
+<property>
+<name>hbase.master.distributed.log.splitting</name>
+<value>false</value>
+</property>
+
+<property>
+<name>hbase.regionserver.hlog.splitlog.writer.threads</name>
+<value>6</value>
+</property>
+<property>
+        <name>hbase.master.maxclockskew</name>
+        <value>180000</value>
+        <description>Time difference of regionserver from master</description>
+</property>
+<property>
+<name>hbase.trace.spanreceiver.classes</name>
+<value>org.cloudera.htrace.impl.ZipkinSpanReceiver</value>
+</property>
+<property>
+<name>zipkin.traced-service-port</name>
+<value>9900</value>
+</property>
+<property>
+<name>hbase.master.balancer.stochastic.regionCountCost</name>
+<value>10000</value>
+</property>
+<property>
+        <name>dfs.client.read.shortcircuit</name>
+        <value>true</value>
+</property>
+<property>
+        <name>hbase.regionserver.checksum.verify</name>
+        <value>false</value>
+</property>
+<property>
+        <name>dfs.client.read.shortcircuit.buffer.size</name>
+        <value>131072</value>
+</property>
+</configuration>

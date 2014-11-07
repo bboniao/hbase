@@ -12,5 +12,5 @@ public interface BatchGetService {
     /**
      * 批量抓取
      */
-    public List<GetItem> batch(List<GetItem> getItems);
+    public List<String> batch(List<GetItem> getItems);
 }
