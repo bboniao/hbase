@@ -43,7 +43,7 @@ public class HystrixBatchGetServiceImpl implements BatchGetService {
         return result;
     }
 
-    public static class CommandCollapserGetValueForKey extends HystrixCollapser<List<Result>, Result, Get> {
+    public class CommandCollapserGetValueForKey extends HystrixCollapser<List<Result>, Result, Get> {
 
         private final Get key;
 
@@ -65,14 +65,11 @@ public class HystrixBatchGetServiceImpl implements BatchGetService {
         protected void mapResponseToRequests(List<Result> batchResponse, Collection<CollapsedRequest<Result, Get>> requests) {
             int count = 0;
             for (CollapsedRequest<Result, Get> request : requests) {
-                if (batchResponse.isEmpty()) {
-                    continue;
-                }
                 request.setResponse(batchResponse.get(count++));
             }
         }
 
-        private static final class BatchCommand extends HystrixCommand<List<Result>> {
+        private  final class BatchCommand extends HystrixCommand<List<Result>> {
             private final Collection<CollapsedRequest<Result, Get>> requests;
 
             private BatchCommand(Collection<CollapsedRequest<Result, Get>> requests) {
@@ -86,19 +83,11 @@ public class HystrixBatchGetServiceImpl implements BatchGetService {
 
             @Override
             protected List<Result> run() throws IOException {
-                List<Result> response = new ArrayList<>();
+                ArrayList<Result> response = new ArrayList<>();
                 for (CollapsedRequest<Result, Get> request : requests) {
-                    Result r = HtableUtil.I.getHtable(Constant.HTABLE).get(request.getArgument());
-                    if (r != null && r.value() != null) {
-                        response.add(r);
-                    }
+                    response.add(HtableUtil.I.getHtable(Constant.HTABLE).get(request.getArgument()));
                 }
                 return response;
-            }
-
-            @Override
-            protected List<Result> getFallback() {
-                return Collections.emptyList();
             }
         }
     }

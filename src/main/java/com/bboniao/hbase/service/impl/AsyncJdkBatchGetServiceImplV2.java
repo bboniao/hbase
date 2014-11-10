@@ -18,7 +18,7 @@ import java.util.concurrent.*;
  * 采用jdk异步方式批量get
  * Created by bboniao on 11/5/14.
  */
-public class AsyncJdkBatchGetServiceImpl implements BatchGetService {
+public class AsyncJdkBatchGetServiceImplV2 implements BatchGetService {
     @Override
     public Map<String, Map<String,String>> batch(List<GetItem> getItems) {
         Map<String, Map<String,String>> result = new ConcurrentHashMap<>();
@@ -58,20 +58,10 @@ public class AsyncJdkBatchGetServiceImpl implements BatchGetService {
         @Override
         public Boolean call() throws Exception {
             List<Future<Boolean>> futureList = new ArrayList<>();
-            List<Get> getList = new ArrayList<>(Constant.BATCH_GROUP_SIZE);
-            int count = 0;
             for (Get get : gets) {
-                getList.add(get);
-                if (count % Constant.BATCH_GROUP_SIZE == 0) {
-                    Future<Boolean> f = AsyncThreadPoolFactory.ASYNC_HBASE_THREAD_POOL.submit(new GetTask(getList, result));
-                    futureList.add(f);
-                    getList = new ArrayList<>(Constant.BATCH_GROUP_SIZE);
-                }
-
-                count++;
+                Future<Boolean> f = AsyncThreadPoolFactory.ASYNC_HBASE_THREAD_POOL.submit(new GetTask(get, result));
+                futureList.add(f);
             }
-            Future<Boolean> f = AsyncThreadPoolFactory.ASYNC_HBASE_THREAD_POOL.submit(new GetTask(getList, result));
-            futureList.add(f);
 
 
             boolean isOk = false;
@@ -93,20 +83,20 @@ public class AsyncJdkBatchGetServiceImpl implements BatchGetService {
 
     private static class GetTask implements Callable<Boolean> {
 
-        private List<Get> gets;
+        private Get gets;
 
         private Map<String, Map<String,String>> result;
 
-        private GetTask(List<Get> gets, Map<String, Map<String,String>> result) {
+        private GetTask(Get gets, Map<String, Map<String,String>> result) {
             this.gets = gets;
             this.result = result;
         }
 
         @Override
         public Boolean call() throws Exception {
-            Result[] rr = HtableUtil.I.getHtable(Constant.HTABLE).get(this.gets);
+            Result rr = HtableUtil.I.getHtable(Constant.HTABLE).get(this.gets);
             if (rr != null) {
-                BatchGetServiceUtil.dealLoop(rr, result);
+                BatchGetServiceUtil.dealLoop(new Result[]{rr}, result);
                 return true;
             } else {
                 return false;

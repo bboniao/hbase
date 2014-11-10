@@ -12,7 +12,6 @@ import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.Result;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -30,34 +29,37 @@ public class DeferredBatchGetServiceImpl implements BatchGetService {
         final Map<String, Map<String,String>> result = new ConcurrentHashMap<>();
         final CountDownLatch latch = new CountDownLatch(getItems.size());
 
-        List<Get> list = new ArrayList<>(20);
-        int count = 0;
-        Callback<Object, Map<String, Map<String,String>>> cb = new Callback<Object, Map<String, Map<String,String>>>() {
+        Callback<Object, Result[]> cb = new Callback<Object, Result[]>() {
             @Override
-            public Object call(Map<String, Map<String,String>> arg) throws Exception {
+            public Object call(Result[] arg) throws Exception {
                 latch.countDown();
                 if(arg != null) {
-                    result.putAll(arg);
+                    BatchGetServiceUtil.dealLoop(arg, result);
                 }
                 return null;
             }
         };
+        List<Get> list = new ArrayList<>(Constant.BATCH_GROUP_SIZE);
+        int count = 0;
+        List<AsyncGet> lists = new ArrayList<>();
         for (GetItem item : getItems) {
             Get get = new Get(item.getRowkey());
             get.addFamily(item.getFamily());
             list.add(get);
-
-            if (count % 20 == 0) {
-                AsyncGet asyncGet = new AsyncGet(list);
-                asyncGet.getDeferred().addBoth(cb);
-                pool.submit(asyncGet);
+            count++;
+            if (count % Constant.BATCH_GROUP_SIZE == 0) {
+                AsyncGet aget = new AsyncGet(list);
+                aget.getDeferred().addBoth(cb);
+                lists.add(aget);
+                list = new ArrayList<>(Constant.BATCH_GROUP_SIZE);
             }
 
-            count++;
         }
-        AsyncGet asyncGet = new AsyncGet(list);
-        asyncGet.getDeferred().addBoth(cb);
-        pool.submit(asyncGet);
+        lists.add(new AsyncGet(list));
+
+        for (AsyncGet l : lists) {
+            pool.submit(l);
+        }
         try {
             latch.await(500, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
@@ -70,30 +72,25 @@ public class DeferredBatchGetServiceImpl implements BatchGetService {
 
         private List<Get> gets;
 
-        private Deferred<Map<String, Map<String,String>>> deferred;
+        private Deferred<Result[]> deferred;
 
         AsyncGet(List<Get> gets) {
             this.gets = gets;
             this.deferred = new Deferred<>();
         }
 
-        final void callback(final Map<String, Map<String,String>> result) {
-            deferred.callback(result);
-        }
-
-        final Deferred<Map<String, Map<String,String>>> getDeferred() {
+        final Deferred<Result[]> getDeferred() {
             return deferred;
         }
 
         @Override
         public Boolean call() throws Exception {
+            if (gets.isEmpty()) {
+                return false;
+            }
             Result[] rr = HtableUtil.I.getHtable(Constant.HTABLE).get(gets);
-            Map<String, Map<String,String>> map = new HashMap<>();
 
-            BatchGetServiceUtil.dealLoop(rr, map);
-
-            callback(map);
-
+            deferred.callback(rr);
             return true;
         }
     }

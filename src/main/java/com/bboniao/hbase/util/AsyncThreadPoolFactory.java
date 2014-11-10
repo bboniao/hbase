@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class AsyncThreadPoolFactory {
 
-    public static final ExecutorService ASYNC_HBASE_THREAD_POOL = new ThreadPoolExecutor(200, 200,
+    public static final ExecutorService ASYNC_HBASE_THREAD_POOL = new ThreadPoolExecutor(300, 300,
             0L, TimeUnit.MILLISECONDS,
             new SynchronousQueue<Runnable>(),
             new NamedThreadFactory("asynchbase", true),

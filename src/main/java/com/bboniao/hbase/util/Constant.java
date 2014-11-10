@@ -8,6 +8,8 @@ import org.apache.hadoop.hbase.util.Bytes;
  */
 public final class Constant {
 
+    public static final int BATCH_GROUP_SIZE = 5;
+
     public final static String TAB = "\t";
 
     public final static String COLON = ":";

@@ -11,6 +11,7 @@ import com.bboniao.hbase.util.AsyncHbaseUtil;
 import com.bboniao.hbase.util.Constant;
 import com.bboniao.hbase.util.HtableUtil;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import java.io.BufferedReader;
@@ -39,6 +40,25 @@ public class Test {
     }
 
     public static void main(String[] args) throws Exception {
+
+        /*new Thread(new Runnable() {
+            @Override
+            public void run() {
+                ThreadPoolExecutor te = (ThreadPoolExecutor)AsyncThreadPoolFactory.ASYNC_HBASE_THREAD_POOL;
+                for (int i = 0; i < 1000000; i++) {
+                    System.out.println("thread poll size is: " + (te.getTaskCount() - te.getCompletedTaskCount()));
+                    try {
+                        TimeUnit.SECONDS.sleep(3);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }).start();*/
+
+
+
+//        args = new String[]{"/Users/bboniao/Desktop/test.txt", "5"};
         BatchGetService batchGetService;
         switch (args[1]) {
             case "1":
@@ -53,8 +73,14 @@ public class Test {
             case "4":
                 batchGetService = new HystrixBatchGetServiceImpl();
                 break;
-            default:
+            case "5":
                 batchGetService = new NativeBatchGetServiceImpl();
+                break;
+            case "6":
+                batchGetService = new AsyncJdkBatchGetServiceImplV1();
+                break;
+            default:
+                batchGetService = new AsyncJdkBatchGetServiceImplV2();
                 break;
         }
         System.out.println("start");
@@ -89,8 +115,13 @@ public class Test {
                 if (g == null) {
                     continue;
                 }
-                gets.add(g);
                 count++;
+                if (count <= 100) {
+                    Get gg = new Get(g.getRowkey());gg.addFamily(g.getFamily());
+                    HtableUtil.I.getHtable(Constant.HTABLE).get(gg);
+                    continue;
+                }
+                gets.add(g);
                 if (count %100 == 0) {
                     Map<String, Map<String,String>> l = this.batchGetService.batch(gets);
                     hit.addAndGet(l.size());
