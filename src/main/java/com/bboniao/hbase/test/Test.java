@@ -79,8 +79,11 @@ public class Test {
             case "6":
                 batchGetService = new AsyncJdkBatchGetServiceImplV1();
                 break;
-            default:
+            case "7":
                 batchGetService = new AsyncJdkBatchGetServiceImplV2();
+                break;
+            default:
+                batchGetService = new NativeGetServiceImpl();
                 break;
         }
         System.out.println("start");

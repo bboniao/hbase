@@ -37,6 +37,7 @@ public class JMeter extends AbstractJavaSamplerClient {
         batchGetService.put("3", new DeferredBatchGetServiceImpl());
         batchGetService.put("4", new HystrixBatchGetServiceImpl());
         batchGetService.put("5", new NativeBatchGetServiceImpl());
+        batchGetService.put("8", new NativeGetServiceImpl());
     }
 
 
