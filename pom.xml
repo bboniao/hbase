@@ -9,6 +9,11 @@
 
 	<dependencies>
         <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-all</artifactId>
+            <version>4.0.17.Final</version>
+        </dependency>
+        <dependency>
             <groupId>org.apache.hbase</groupId>
             <artifactId>hbase-client</artifactId>
             <version>0.98.7-hadoop2</version>
@@ -35,6 +40,17 @@
             <artifactId>ApacheJMeter_core</artifactId>
             <version>2.11</version>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-core</artifactId>
+            <version>1.0.13</version>
+        </dependency>
+
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.0.13</version>
         </dependency>
     </dependencies>
 	<build>
@@ -96,7 +112,7 @@
                             <transformers>
                                 <transformer
                                         implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.bboniao.hbase.test.Test</mainClass>
+                                    <mainClass>com.bboniao.hbase.input.HbaseInput</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>

@@ -3,10 +3,7 @@ package com.bboniao.hbase.input;
 import com.bboniao.hbase.util.Constant;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.client.Durability;
-import org.apache.hadoop.hbase.client.HTable;
-import org.apache.hadoop.hbase.client.HTableInterface;
-import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import java.io.*;
@@ -25,7 +22,7 @@ public class HbaseInput {
     private static final String VID = "vid";
     private static final String CVID = "cvid";
 
-    private HTableInterface allHtable;
+    private HTable allHtable;
     private List<Put> list;
     private int index;
 
@@ -92,6 +89,7 @@ public class HbaseInput {
             this.list.add(p);
             index++;
             if (index % Constant.BATCH_SIZE == 0) {
+//                HTableUtil.bucketRsPut(this.allHtable, list);
                 this.allHtable.put(list);
                 list = new ArrayList<>(Constant.BATCH_SIZE);
             }
@@ -149,7 +147,9 @@ public class HbaseInput {
     }*/
 
     public static void main(String[] args) {
+        long time = System.currentTimeMillis();
         new HbaseInput().input(args[0]);
+        System.out.println("time: " + (System.currentTimeMillis() - time));
     }
 }
 

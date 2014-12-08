@@ -1,9 +1,7 @@
 package com.bboniao.hbase.util;
 
 import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.client.HConnection;
-import org.apache.hadoop.hbase.client.HConnectionManager;
-import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.client.*;
 
 import java.io.IOException;
 
@@ -36,5 +34,10 @@ public enum HtableUtil {
 
     public void close() throws IOException {
         this.connection.close();
+    }
+
+    public static void main(String[] args) throws IOException {
+        Result r = HtableUtil.I.getHtable("rc_feature".getBytes()).get(new Get("000008e46cd4286ff5d2dd8bd5682920|2|19763476".getBytes()));
+        System.out.println(r);
     }
 }
